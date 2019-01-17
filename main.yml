@@ -17,7 +17,7 @@
       api_body: {
           "Name": "{{ server_profile }}"
       }
-      state: absent
+      state: present
   # - name: Configure Server Profile
   #   intersight_objects:
   #     api_private_key: /intersight_api_private_key
