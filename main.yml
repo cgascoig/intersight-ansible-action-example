@@ -18,6 +18,7 @@
           "Name": "{{ server_profile }}"
       }
       state: present
+      # blah
   # - name: Configure Server Profile
   #   intersight_objects:
   #     api_private_key: /intersight_api_private_key
