@@ -26,12 +26,12 @@
 
     sites:
       - name: melbourne
-      # - name: sydney
-      # - name: canberra
-      # - name: brisbane
-      # - name: darwin
-      # - name: perth
-      # - name: adelaide
+      - name: sydney
+      - name: canberra
+      - name: brisbane
+      - name: darwin
+      - name: perth
+      - name: adelaide
 
     local_credential_attrs:
       hv_admin_username: root
