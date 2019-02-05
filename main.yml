@@ -6,32 +6,173 @@
     api_info: &api_info
       api_private_key: /intersight_api_private_key
       api_key_id: "{{ intersight_api_key_id }}"
-    server_profile: ansible-test-server-profile
+    object_state: present
+
+    base_policy_name: cg-ansible
+    policy_names:
+      local_credential: "{{ base_policy_name }}-hx-local-credential-policy"
+      sys_config: "{{ base_policy_name }}-hx-sys-config-policy"
+      vcenter_config: "{{ base_policy_name }}-hx-vcenter-config-policy"
+      cluster_storage: "{{ base_policy_name }}-hx-cluster-storage-policy"
+      cluster_network: "{{ base_policy_name }}-hx-cluster-network-policy"
+      node_config: "{{ base_policy_name }}-hx-node-config-policy"
+
+    cluster_profile_attrs:
+      mgmt_platform: EDGE
+      description: HX Cluster created by Ansible
+      storage_data_vlan: 102
+      mgmt_ip_address: 10.1.1.100
+      hxdp_version: "3.5(2a)"
+
+    sites:
+      - name: melbourne
+      # - name: sydney
+      # - name: canberra
+      # - name: brisbane
+      # - name: darwin
+      # - name: perth
+      # - name: adelaide
+
+    local_credential_attrs:
+      hv_admin_username: root
+      hv_admin_password: "C1sco123!!"
+      hx_root_password: "C1sco123!!"
+    sys_config_attrs:
+      timezone: "Australia/Sydney"
+      dns_servers: ["8.8.8.8", "8.8.4.4"]
+      ntp_servers: ["pool.ntp.org"]
+    vcenter_config_attrs:
+      hostname: "vc.local"
+      username: "administrator@vsphere.local"
+      password: "cisco"
+      datacenter: "dc1"
+    cluster_network_attrs:
+      vlan_id: 101
+      jumbo_frame: false
+    node_config_attrs:
+      node_name_prefix: cg-ansible
+      mgmt_ip_range:
+        start: "10.1.1.10"
+        end: "10.1.1.20"
+        netmask: "255.255.255.0"
+        gateway: "10.1.1.1"
+      hxdp_ip_range:
+        start: "10.2.2.10"
+        end: "10.2.2.20"
+        netmask: "255.255.255.0"
+        gateway: "10.2.2.1"
+
+
   tasks:
-  - name: Configure Server Profile
+  - name: Configure HX Local Credential (Security) Policy
     intersight_rest_api:
       <<: *api_info
-      resource_path: /server/Profiles
+      resource_path: /hyperflex/LocalCredentialPolicies
       query_params:
-        $filter: "Name eq '{{ server_profile }}'"
+        $filter: "Name eq '{{ policy_names.local_credential }}'"
       api_body: {
-          "Name": "{{ server_profile }}"
+        "Name": "{{ policy_names.local_credential}}",
+        "HypervisorAdmin": "{{ local_credential_attrs.hv_admin_username }}",
+        "HypervisorAdminPwd": "{{ local_credential_attrs.hv_admin_password }}",
+        "HxdpRootPwd": "{{ local_credential_attrs.hx_root_password }}"
       }
-      state: present
-  # - name: Configure Server Profile
-  #   intersight_objects:
-  #     api_private_key: /intersight_api_private_key
-  #     api_key_id: /intersight_api_key_id
-  #     objects:
-  #     - {
-  #       "api_module": "intersight.apis.server_profile_api",
-  #       "api_class": "ServerProfileApi",
-  #       "api_method_prefix": "server_profiles",
-  #       "get_filter": "Name eq 'ansible-demo'",
-  #       "data_module": "intersight.models.server_profile",
-  #       "data_class": "ServerProfile",
-  #       "api_body": {
-  #           "Name": "ansible-demo"
-  #       }
-  #     }
-  #     state: present
+      state: "{{ object_state }}"
+    register: local_credential
+
+  - name: Configure HX Sys Config (DNS, NTP and Timezone) Policy
+    intersight_rest_api:
+      <<: *api_info
+      resource_path: /hyperflex/SysConfigPolicies
+      query_params:
+        $filter: "Name eq '{{ policy_names.sys_config }}'"
+      api_body: {
+        "Name": "{{ policy_names.sys_config }}",
+        "Timezone": "{{ sys_config_attrs.timezone }}",
+        "DnsServers": "{{ sys_config_attrs.dns_servers }}",
+        "NtpServers": "{{ sys_config_attrs.ntp_servers }}"
+      }
+      state: "{{ object_state }}"
+    register: sys_config
+
+  - name: Configure HX vCenter Policy
+    intersight_rest_api:
+      <<: *api_info
+      resource_path: /hyperflex/VcenterConfigPolicies
+      query_params:
+        $filter: "Name eq '{{ policy_names.vcenter_config }}'"
+      api_body: {
+        "Name": "{{ policy_names.vcenter_config }}",
+        "Hostname": "{{ vcenter_config_attrs.hostname }}",
+        "Username": "{{ vcenter_config_attrs.username }}",
+        "Password": "{{ vcenter_config_attrs.password }}",
+        "DataCenter": "{{ vcenter_config_attrs.datacenter }}"
+      }
+      state: "{{ object_state }}"
+    register: vcenter_config
+
+  - name: Configure HX Cluster Network Policy
+    intersight_rest_api:
+      <<: *api_info
+      resource_path: /hyperflex/ClusterNetworkPolicies
+      query_params:
+        $filter: "Name eq '{{ policy_names.cluster_network }}'"
+      api_body: {
+        "Name": "{{ policy_names.cluster_network }}",
+        "MgmtVlan": {
+          "VlanId": "{{ cluster_network_attrs.vlan_id }}"
+        },
+        "JumboFrame": "{{ cluster_network_attrs.jumbo_frame }}"
+      }
+      state: "{{ object_state }}"
+    register: cluster_network
+
+  - name: Configure HX Node Config Policy
+    intersight_rest_api:
+      <<: *api_info
+      resource_path: /hyperflex/NodeConfigPolicies
+      query_params:
+        $filter: "Name eq '{{ policy_names.node_config }}'"
+      api_body: {
+        "Name": "{{ policy_names.node_config }}",
+        "NodeNamePrefix": "{{ node_config_attrs.node_name_prefix }}",
+          "MgmtIpRange": {
+            "StartAddr": "{{ node_config_attrs.mgmt_ip_range.start }}",
+            "EndAddr": "{{ node_config_attrs.mgmt_ip_range.end }}",
+            "Netmask": "{{ node_config_attrs.mgmt_ip_range.netmask }}",
+            "Gateway": "{{ node_config_attrs.mgmt_ip_range.gateway }}"
+          },
+          "HxdpIpRange": {
+            "StartAddr": "{{ node_config_attrs.hxdp_ip_range.start }}",
+            "EndAddr": "{{ node_config_attrs.hxdp_ip_range.end }}",
+            "Netmask": "{{ node_config_attrs.hxdp_ip_range.netmask }}",
+            "Gateway": "{{ node_config_attrs.hxdp_ip_range.gateway }}"
+          }
+      }
+      state: "{{ object_state }}"
+    register: node_config
+
+
+  - name: Configure HX Cluster Profile
+    intersight_rest_api:
+      <<: *api_info
+      resource_path: /hyperflex/ClusterProfiles
+      query_params:
+        $filter: "Name eq 'cgascoig-{{ item.name }}-hx-cluster-profile'"
+      api_body: {
+        "Name": "cgascoig-{{ item.name }}-hx-cluster-profile",
+        "MgmtPlatform": "{{ cluster_profile_attrs.mgmt_platform }}",
+        "HxdpVersion": "{{ cluster_profile_attrs.hxdp_version }}",
+        "Description": "{{ cluster_profile_attrs.description }}",
+        "StorageDataVlan": {
+          "VlanId": "{{ cluster_profile_attrs.storage_data_vlan }}"
+        },
+        "MgmtIpAddress": "{{ cluster_profile_attrs.mgmt_ip_address }}",
+        "LocalCredential": "{{ local_credential.api_response.Moid }}",
+        "SysConfig": "{{ sys_config.api_response.Moid }}",
+        "VcenterConfig": "{{ vcenter_config.api_response.Moid }}",
+        "ClusterNetwork": "{{ cluster_network.api_response.Moid }}",
+        # "ClusterStorage": ,
+        "NodeConfig": "{{ node_config.api_response.Moid }}",
+      }
+      state: "{{ object_state }}"
+    loop: "{{ sites }}"
